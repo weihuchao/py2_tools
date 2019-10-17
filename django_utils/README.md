@@ -1,4 +1,11 @@
 
+## 0 经验总结
+
+1. 项目不规范会导致各种各样的问题
+1). 代码风格不统一
+2).
+
+
 
 ## 1 短查询和长查询
 
@@ -226,4 +233,57 @@ EXPLAIN SELECT `course_meta_classroomuserrelationship`.`id` FROM `course_meta_cl
 ```
 
 同时以`role`开始同样无法命中
+
+
+## 3 异步任务
+
+```python
+celery==3.1.25
+django-celery==3.1.17
+```
+
+### 3.0 基础知识
+
+1. Celery Beat：任务调度器，Beat进程会读取配置文件的内容，周期性地将配置中到期需要执行的任务发送给任务队列。
+2. Celery Worker：执行任务的消费者，通常会在多台服务器运行多个消费者来提高执行效率。
+3. Broker：消息代理，或者叫作消息中间件，接受任务生产者发送过来的任务消息，存进队列再按序分发给任务消费方（通常是消息队列或者数据库）。
+4. Producer：调用了Celery提供的API、函数或者装饰器而产生任务并交给任务队列处理的都是任务生产者。
+5. Result Backend：任务处理完后保存状态信息和结果，以供查询。Celery默认已支持Redis、RabbitMQ、MongoDB、Django ORM、SQLAlchemy等方式。
+
+
+
+
+
+### 3.1 定时任务的写法
+
+settings
+```python
+CELERY_IMPORTS = (
+    'quiz.period_task', 
+    'lesson.period_task', 
+    'student.tasks', 
+    'course_meta.period_task', 
+    'cards.period_tasks',
+    'gkk_course.period_task', 
+    'gkk_qa.period_tasks', 
+    'pc.period_tasks'
+)
+```
+
+```python
+from celery.task import periodic_task
+
+@periodic_task(run_every=crontab(minute='*/10'))
+def task():
+    pass
+    
+    
+@periodic_task(run_every=crontab(hour='10, 15, 19', minute=0))
+def task():
+    pass
+
+
+```
+
+
 
