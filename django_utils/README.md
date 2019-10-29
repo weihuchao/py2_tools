@@ -286,4 +286,112 @@ def task():
 ```
 
 
+## 4 ORM的继续
 
+关于`save()`的问题
+
+原则为, 如果当前对象有多少字段, `save()`的时候就会`update`多少个字段
+
+也就是说
+
+```python
+lesson_live = LessonLive.objects.filter(id=10).first()
+lesson_live.replay_file = lesson_live.id
+lesson_live.save()
+```
+
+会转化成
+
+```sql
+SELECT
+	`lesson_lessonlive`.`id`,
+	...省略其他lesson_lessonlive的所有剩余字段...
+	`lesson_lessonlive`.`outer_live_url` 
+FROM
+	`lesson_lessonlive` 
+WHERE
+	`lesson_lessonlive`.`id` = 10 
+ORDER BY
+	`lesson_lessonlive`.`id` ASC 
+	LIMIT 1;
+	
+UPDATE `lesson_lessonlive` SET 
+    `lesson_id` = 5672,
+    `room_code` = 'ProLive-5672-ffd3f5ec',
+    `status` = 2,
+    `start` = '2018-12-17 17:35:15',
+    `end` = '2018-12-17 17:42:07',
+    `replay_file` = '10',
+    `deleted` = 0,
+    `live_type` = 1,
+    `outer_live_url` = NULL 
+WHERE
+	`lesson_lessonlive`.`id` = 10;
+```
+
+要保证精确的指定哪几个字段, 需要使用`only`
+
+```python
+lesson_live = LessonLive.objects.filter(id=10).only("replay_file").first()
+lesson_live.replay_file = lesson_live.id
+lesson_live.save()
+```
+
+这样才会转化成我们想要的SQL
+
+```sql
+SELECT
+	`lesson_lessonlive`.`id`,
+	`lesson_lessonlive`.`replay_file` 
+FROM
+	`lesson_lessonlive` 
+WHERE
+	`lesson_lessonlive`.`id` = 10 
+ORDER BY
+	`lesson_lessonlive`.`id` ASC 
+	LIMIT 1;
+	
+	
+UPDATE `lesson_lessonlive` 
+SET `replay_file` = '10' 
+WHERE
+	`lesson_lessonlive`.`id` = 10;
+```
+
+注意因为使用了`only`所以model只有指定的那么几个字段, 如果使用到了别的字段, 会多出一次查询出来
+
+```pyhton
+lesson_live = LessonLive.objects.filter(id=10).only("replay_file").first()
+lesson_live.replay_file = lesson_live.id
+print lesson_live.live_type
+lesson_live.save()
+```
+
+而且要注意的是, 多出来的这条语句并不会带着别的字段查询, 只会查询出`id`和多出来的字段, 如果有多个不在`only`的字段, 就会有更多的查询出现!
+
+```sql
+SELECT
+	`lesson_lessonlive`.`id`,
+	`lesson_lessonlive`.`replay_file` 
+FROM
+	`lesson_lessonlive` 
+WHERE
+	`lesson_lessonlive`.`id` = 10 
+ORDER BY
+	`lesson_lessonlive`.`id` ASC 
+	LIMIT 1;
+	
+SELECT
+	`lesson_lessonlive`.`id`,
+	`lesson_lessonlive`.`live_type` 
+FROM
+	`lesson_lessonlive` 
+WHERE
+	`lesson_lessonlive`.`id` = 10;
+	
+UPDATE `lesson_lessonlive` 
+SET `replay_file` = '10',
+`live_type` = 1 
+WHERE
+	`lesson_lessonlive`.`id` = 10;
+```
