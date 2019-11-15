@@ -68,6 +68,9 @@ WHERE
 ```python
 for classroom in Classroom.objects.filter(university_id=19).select_related("course")[:3]:
     print classroom.name
+    
+# 甚至可以这样
+# ClassroomUserRelationship.objects.filter(role=1).select_related("classroom", "classroom__course")
 ```
 
 ```sql
